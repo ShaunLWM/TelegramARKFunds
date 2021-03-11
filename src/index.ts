@@ -31,11 +31,11 @@ const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve,
 			path.resolve(__dirname, "..", "data", "credentials.json"),
 			path.resolve(__dirname, "..", "data", "token.json"),
 			{
-				subject: "ARK Investment Management LLC – Actively Managed ETFs - Daily Trade Information*",
+				subject: "ARK Investment Management LLC – Actively Managed ETFs - Daily Trade Information",
 				from: "ark@ark-funds.com",
 				to: "kingofxiaomi@gmail.com",
 				wait_time_sec: 10,
-				max_wait_time_sec: 30,
+				max_wait_time_sec: 20,
 				include_body: true,
 			}
 		);
@@ -49,11 +49,9 @@ const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve,
 
 		const body = email[0].body.html.toString();
 		console.log(email);
-		const match = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g.exec(
-			body
-		);
+		const match = /href="(.*?)">Download today/g.exec(body);
 		if (!match) return bot.sendMessage(8925075, "Download link not found");
-		await download(match[0], ".", { filename: "1.xls" });
+		await download(match[1], ".", { filename: "1.xls" });
 		xls(
 			{
 				input: "1.xls",
