@@ -27,71 +27,97 @@ const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve,
 	const saveConfig = async () => fs.writeJSONSync("config.json", config);
 
 	const checkEmail = async () => {
-		const email = await gmail.check_inbox(
-			path.resolve(__dirname, "..", "data", "credentials.json"),
-			path.resolve(__dirname, "..", "data", "token.json"),
-			{
-				subject: "ARK Investment Management LLC – Actively Managed ETFs - Daily Trade Information",
-				from: "ark@ark-funds.com",
-				to: "kingofxiaomi@gmail.com",
-				wait_time_sec: 10,
-				max_wait_time_sec: 20,
-				include_body: true,
+		try {
+			const email = await gmail.check_inbox(
+				path.resolve(__dirname, "..", "data", "credentials.json"),
+				path.resolve(__dirname, "..", "data", "token.json"),
+				{
+					subject: "ARK Investment Management LLC – Actively Managed ETFs - Daily Trade Information",
+					from: "ark@ark-funds.com",
+					to: "kingofxiaomi@gmail.com",
+					wait_time_sec: 10,
+					max_wait_time_sec: 20,
+					include_body: true,
+				}
+			);
+
+			if (!email) {
+				console.log(`> email not found`);
+				return bot.sendMessage(8925075, "Email not found");
 			}
-		);
 
-		if (!email) return bot.sendMessage(8925075, "Email not found");
-		console.log(config.access, email[0].date.toString());
-		if (config.access === email[0].date.toString()) return bot.sendMessage(8925075, `Ignoring same email`);
+			console.log(config.access, email[0].date.toString());
+			if (config.access === email[0].date.toString()) {
+				console.log(`> Ignoring same email ${config.access}`);
+				return bot.sendMessage(8925075, `Ignoring same email`);
+			}
 
-		config.access = email[0].date.toString();
-		await saveConfig();
+			config.access = email[0].date.toString();
+			await saveConfig();
 
-		const body = email[0].body.html.toString();
-		console.log(email);
-		const match = /href="(.*?)">Download today/g.exec(body);
-		if (!match) return bot.sendMessage(8925075, "Download link not found");
-		await download(match[1], ".", { filename: "1.xls" });
-		xls(
-			{
-				input: "1.xls",
-				output: null,
-				sheet: "Sheet1",
-				rowsToSkip: 3,
-				allowEmptyKey: false,
-			},
-			async (err: any, result: any) => {
-				if (err) return bot.sendMessage(8925075, err);
-				const date = result[0].Date;
-				const vals = result
-					.map((val: any) => [
-						val["FUND"],
-						`${val["Direction"] === "Buy" ? "+" : "-"}${val["Ticker"]}`,
-						val["Shares"],
-						`${val["% of ETF"]}%`,
-					])
-					.filter((p: Array<string>) => p[0].startsWith("ARK"));
+			const body = email[0].body.html.toString();
+			const match = /href="(.*?)">Download today/g.exec(body);
+			if (!match) {
+				console.log(`> download link not found`);
+				return bot.sendMessage(8925075, "Download link not found");
+			}
 
-				if (vals[vals.length - 1][0].length < 1) vals.splice(-1, 1);
-				fs.rmSync("1.xls");
-				const str = `\`\`\`\n${date}\n${table(vals)}\`\`\``;
-				config.latest = str;
-				await saveConfig();
-				for (const rm of config.groups) {
-					await sleep(500);
-					await bot.sendMessage(rm, str, {
+			console.log(`> download link: ${match[1]}`);
+			await download(match[1], ".", {
+				filename: "1.xls",
+				headers: {
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36",
+				},
+			});
+
+			xls(
+				{
+					input: "1.xls",
+					output: null,
+					sheet: "Sheet1",
+					rowsToSkip: 3,
+					allowEmptyKey: false,
+				},
+				async (err: any, result: any) => {
+					if (err) {
+						console.log(`> xls erorr: ${err}`);
+						return bot.sendMessage(8925075, err);
+					}
+
+					const date = result[0].Date;
+					const vals = result
+						.map((val: any) => [
+							val["FUND"],
+							`${val["Direction"] === "Buy" ? "+" : "-"}${val["Ticker"]}`,
+							val["Shares"],
+							`${val["% of ETF"]}%`,
+						])
+						.filter((p: Array<string>) => p[0].startsWith("ARK"));
+
+					if (vals[vals.length - 1][0].length < 1) vals.splice(-1, 1);
+					fs.rmSync("1.xls");
+					const str = `\`\`\`\n${date}\n${table(vals)}\`\`\``;
+					config.latest = str;
+					await saveConfig();
+					for (const rm of config.groups) {
+						await sleep(500);
+						await bot.sendMessage(rm, str, {
+							parse_mode: "Markdown",
+						});
+					}
+
+					await bot.sendMessage(`@${config.channel}`, str, {
 						parse_mode: "Markdown",
 					});
+
+					await sleep(1000);
+					await bot.sendMessage(8925075, `Done. Next email at ${job.nextDate().toLocaleString()}`);
 				}
-
-				await bot.sendMessage(`@${config.channel}`, str, {
-					parse_mode: "Markdown",
-				});
-
-				await sleep(1000);
-				await bot.sendMessage(8925075, `Done. Next email at ${job.nextDate().toLocaleString()}`);
-			}
-		);
+			);
+		} catch (error) {
+			return bot.sendMessage(8925075, JSON.stringify(error));
+		}
 	};
 
 	let config: Config;
