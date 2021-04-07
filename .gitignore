@@ -102,3 +102,4 @@ dist
 .tern-port
 config.json
 data/*
+testMail.ts
