@@ -1,2 +1,2 @@
-declare module 'gmail-tester';
-declare module 'xls-to-json';
+declare module "gmail-tester";
+declare module "xls-to-json";
