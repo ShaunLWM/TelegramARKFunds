@@ -1,14 +1,14 @@
 process.env.NTBA_FIX_319 = "1";
 
 import "dotenv/config";
-import path from "path";
-import gmail from "gmail-tester";
-import download from "download";
-import xls from "xls-to-json";
-import fs from "fs-extra";
-import table from "text-table";
-import TelegramBot from "node-telegram-bot-api";
 import { CronJob } from "cron";
+import download from "download";
+import fs from "fs-extra";
+import gmail from "gmail-tester";
+import TelegramBot from "node-telegram-bot-api";
+import path from "path";
+import table from "text-table";
+import xls from "xls-to-json";
 
 type Config = {
 	access: string; // last email accessed time
@@ -55,8 +55,8 @@ const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve,
 			config.access = email[0].date.toString();
 			await saveConfig();
 
-			const body = email[0].body.html.toString();
-			const match = /href="(.*?)">Download today/g.exec(body);
+			const body = email[0].body.html.toString().replace(/[\r\n]+/g, "");
+			const match = /href="(.*?)">.*?<u>Download/g.exec(body);
 			if (!match) {
 				console.log(`> download link not found`);
 				return bot.sendMessage(8925075, "Download link not found");
@@ -116,6 +116,7 @@ const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve,
 				}
 			);
 		} catch (error) {
+			console.error(error)
 			return bot.sendMessage(8925075, JSON.stringify(error));
 		}
 	};
