@@ -56,7 +56,7 @@ const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve,
 			await saveConfig();
 
 			const body = email[0].body.html.toString().replace(/[\r\n]+/g, "");
-			const match = /href="(.*?)">.*?<u>Download/g.exec(body);
+			const match = /t"><ahref="(.*?)"><span.*?Download today/g.exec(body);
 			if (!match) {
 				console.log(`> download link not found`);
 				return bot.sendMessage(8925075, "Download link not found");
